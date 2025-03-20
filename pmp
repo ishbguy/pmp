@@ -14,7 +14,7 @@ warn() { echo -e "$@" >&2; ((++PMP_EXIT_CODE)); return ${WERROR:-1}; }
 die() { echo -e "$@" >&2; exit $((++PMP_EXIT_CODE)); }
 debug() { [[ $DEBUG == 1 ]] && echo "$@" || true; }
 usage() { echo -e "$HELP"; }
-version() { echo -e "$PROGNAME $VERSION"; }
+version() { echo -e "$PROGRAM $VERSION"; }
 defined() { declare -p "$1" &>/dev/null; }
 definedf() { declare -f "$1" &>/dev/null; }
 is_sourced() { [[ -n ${FUNCNAME[1]} && ${FUNCNAME[1]} != "main" ]]; }
@@ -93,14 +93,226 @@ require() {
 require_var() { require defined "You need to define vars" "$@"; }
 require_func() { require definedf "You need to define funcs" "$@"; }
 require_tool() { require has_tool "You need to install tools" "$@"; }
-inicfg() { require_tool git; git config --file "$@"; }
+inicfg() { require_tool git && git config --file "$@"; }
+
+# Linux package manager agent
+
+linux_pma() {
+    local distro line
+    if [[ -f /etc/os-release ]]; then
+        while IFS='' read -r line || [[ -n "$line" ]]; do
+            if [[ $line = ID* ]]; then
+                distro="${line#ID=}"
+                distro="${distro//\"/}"
+                break
+            fi
+        done </etc/os-release
+    fi
+    if [[ -n $distro ]] && declare -F "${distro}_pma" &>/dev/null; then
+        echo "${distro}_pma"
+    else
+        echo ":"
+    fi
+}
+
+arch_pma() {
+    require_tool pacman
+    has_tool pkgfile || { pacman -S pkgfile && pkgfile -u ; }
+
+    local subcmd=$1 && shift
+
+    case $subcmd in
+        install) pacman -S "$@" ;;
+        remove) pacman -R "$@" ;;
+        autoremove) pacman -Rns $(pacman -Qdtq) "$@" ;;
+        update) pacman -Sy "$@" ;;
+        upgrade) pacman -Syu "$@" ;;
+        search) pacman -Ss "$@" ;;
+        list) pacman -Q "$@" ;;
+        info) pacman -Si "$@" ;;
+        files) pkgfile -l "$@" ;;
+        owns) pkgfile -s "$@" ;;
+        clean) pacman -Sc "$@" ;;
+        repo) pacman -Sl "$@";;
+        * ) die "No such command: ${subcmd@Q}" ;;
+    esac
+}
+
+debian_pma() {
+    require_tool apt
+    has_tool apt-file || { apt install apt-file && apt-file update ; }
+
+    local subcmd=$1 && shift
+
+    case $subcmd in
+        install) apt install "$@" ;;
+        remove) apt remove "$@" ;;
+        autoremove) apt autoremove "$@" ;;
+        update) apt update "$@" ;;
+        upgrade) apt upgrade "$@" ;;
+        search) apt search "$@" ;;
+        list) apt list --installed "$@" ;;
+        info) apt show "$@" ;;
+        files) apt-file list "$@" ;;
+        owns) apt-file search "$@" ;;
+        clean) apt clean "$@" ;;
+        repo) apt-cache policy "$@" ;;
+        * ) die "No such command: ${subcmd@Q}" ;;
+    esac
+}
+
+ubuntu_pma() {
+    debian_pma "$@"
+}
+
+fedora_pma() {
+    require_tool dnf
+
+    local subcmd=$1 && shift
+
+    case $subcmd in
+        install) dnf install "$@" ;;
+        remove) dnf remove "$@" ;;
+        autoremove) dnf autoremove "$@" ;;
+        update) dnf check-update "$@" ;;
+        upgrade) dnf upgrade "$@" ;;
+        search) dnf search "$@" ;;
+        list) dnf list installed "$@" ;;
+        info) dnf info "$@" ;;
+        files) dnf repoquery --list "$@" ;;
+        owns) dnf provides "$@" ;;
+        clean) dnf clean all "$@" ;;
+        repo) dnf repolist "$@" ;;
+        * ) die "No such command: ${subcmd@Q}" ;;
+    esac
+}
+
+redhat_pma() {
+    local version line
+    if [[ -f /etc/os-release ]]; then
+        while IFS='' read -r line || [[ -n "$line" ]]; do
+            if [[ $line = VERSION_ID* ]]; then
+                version="${line#VERSION_ID=}"
+                version="${version//\"/}"
+                break
+            fi
+        done </etc/os-release
+    fi
+
+    [[ $version -lt 8 ]] || { fedora_pma "$@" ; return $? ; }
+
+    require_tool yum
+    has_tool repoquery || { yum install yum-utils ; }
+
+    local subcmd=$1 && shift
+
+    case $subcmd in
+        install) yum install "$@" ;;
+        remove) yum remove "$@" ;;
+        autoremove) yum autoremove "$@" ;;
+        update) yum check-update "$@" ;;
+        upgrade) yum upgrade "$@" ;;
+        search) yum search "$@" ;;
+        list) yum list installed "$@" ;;
+        info) yum info "$@" ;;
+        files) repoquery --list "$@" ;;
+        owns) repoquery --provides "$@" ;;
+        clean) yum clean all "$@" ;;
+        repo) yum repolist "$@" ;;
+        * ) die "No such command: ${subcmd@Q}" ;;
+    esac
+}
+
+opensuse_pma() {
+    require_tool zypper
+
+    local subcmd=$1 && shift
+
+    case $subcmd in
+        install) zypper install "$@" ;;
+        remove) zypper remove "$@" ;;
+        autoremove) zypper rm --clean-deps "$@" ;;
+        update) zypper refresh "$@" ;;
+        upgrade) zypper update "$@" ;;
+        search) zypper search "$@" ;;
+        list) zypper search --installed "$@" ;;
+        info) zypper info "$@" ;;
+        files) zypper packages --files "$@" ;;
+        owns) zypper wp "$@" ;;
+        clean) zypper clean "$@" ;;
+        repo) zypper lr "$@" ;;
+        * ) die "No such command: ${subcmd@Q}" ;;
+    esac
+}
+
+gentoo_pma() {
+    require_tool emerge
+    has_tool equery || { emerge gentoolkit ; }
+
+    local subcmd=$1 && shift
+
+    case $subcmd in
+        install) emerge "$@" ;;
+        remove) emerge --unmerge "$@" ;;
+        autoremove) emerge --depclean "$@" ;;
+        update) emerge --sync "$@" ;;
+        upgrade) emerge -avuDU "$@" ;;
+        search) emerge --search "$@" ;;
+        list) emerge -ep "$@" ;;
+        info) emerge -pv "$@" ;;
+        files) equery files "$@" ;;
+        owns) equery belongs "$@" ;;
+        clean) eclean-dist "$@" ;;
+        repo) eselect repository list "$@" ;;
+        * ) die "No such command: ${subcmd@Q}" ;;
+    esac
+}
+
+openwrt_pma() {
+    require_tool opkg
+    has_tool find || { opkg install findutils ; }
+
+    local subcmd=$1 && shift
+
+    case $subcmd in
+        install) opkg install "$@" ;;
+        remove) opkg remove "$@" ;;
+        autoremove) true ;;
+        update) opkg update "$@" ;;
+        upgrade) opkg upgrade "$@" ;;
+        search) opkg find "$@" ;;
+        list) opkg list-installed "$@" ;;
+        info) opkg info "$@" ;;
+        files) opkg files "$@" ;;
+        owns)
+            local file pkg
+            for file in "$@"; do
+                if [[ -e $file ]]; then
+                    pkg="$(opkg search "$PWD/$file")"
+                else
+                    pkg="$(opkg search "$(which "$file")")"
+                fi
+                echo "$file: $pkg"
+            done
+            ;;
+        clean) opkg clean "$@" ;;
+        repo)
+            if [[ ${#@} -eq 0 ]]; then
+                grep '^src' /etc/opkg.conf $(find /etc/opkg -name *.conf)
+            else
+                grep '^src' "$@"
+            fi
+            ;;
+        * ) die "No such command: ${subcmd@Q}" ;;
+    esac
+}
 
 pmp() {
-    local PROGNAME="$(basename "${BASH_SOURCE[0]}")"
-    local VERSION="v0.0.1"
+    local PROGRAM="$(basename "${BASH_SOURCE[0]}")"
+    local VERSION="v0.1.0"
     local HELP=$(cat <<EOF
-$PROGNAME $VERSION
-$PROGNAME [-hvD] args
+$PROGRAM $VERSION
+$PROGRAM [-hvD] args
     
     -h  print this help message 
     -v  print version number
@@ -119,22 +331,19 @@ EOF
     require_tool git
 
     # run without args will print help message
-    [[ $# -gt 0 ]] || usage
+    [[ $# -gt 0 ]] || { usage && return 0; } 
 
     local subcmd=$1 && shift
 
     case $subcmd in
         install|remove|autoremove|update|upgrade|search|list|info|files|owns|clean|repo)
-            ;;
-        bootstrap)
-            ;;
-        config)
-            ;;
-        git)
-            ;;
-        * )
-            die "No such command: ${subcmd@Q}"
-            ;;
+            $(linux_pma) "$subcmd" "$@" ;;
+        bootstrap) : ;;
+        config) git config "$@";;
+        git) git "$@" ;;
+        version) version && return 0 ;;
+        help) usage && return 0 ;;
+        * ) die "No such command: ${subcmd@Q}" ;;
     esac
 }
 

@@ -15,7 +15,9 @@ load pmp-helper
 
 @test "pmp version" {
     run pmp -v
-    assert_match "pmp $VERSION"
+    assert_match "pmp v([0-9]+.?){3}"
+    run pmp version
+    assert_match "pmp v([0-9]+.?){3}"
 }
 
 @test "pmp help" {
@@ -23,54 +25,15 @@ load pmp-helper
     assert_match "print this help message"
     run pmp -h
     assert_match "print this help message"
+    run pmp help
+    assert_match "print this help message"
 }
 
-@test "pmp install" {
-    pass
-}
-
-@test "pmp remove" {
-    pass
-}
-
-@test "pmp autoremove" {
-    pass
-}
-
-@test "pmp update" {
-    pass
-}
-
-@test "pmp upgrade" {
-    pass
-}
-
-@test "pmp search" {
-    pass
-}
-
-@test "pmp list" {
-    pass
-}
-
-@test "pmp info" {
-    pass
-}
-
-@test "pmp files" {
-    pass
-}
-
-@test "pmp owns" {
-    pass
-}
-
-@test "pmp clean" {
-    pass
-}
-
-@test "pmp repo" {
-    pass
+@test "pmp linux_pma" {
+    run linux_pma
+    assert_match "$(awk -F= '/^ID=/ {print $2}' /etc/os-release)"
+    run pmp install
+    assert_failure
 }
 
 @test "pmp bootstrap" {
