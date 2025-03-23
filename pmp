@@ -117,11 +117,11 @@ linux_pma() {
 
 arch_pma() {
     require_tool pacman
-    has_tool pkgfile || { pacman -S pkgfile && pkgfile -u ; }
+    has_tool pkgfile || { pacman -S --noconfirm pkgfile && pkgfile -u ; } || die "Can not install 'pkgfile'!"
 
-    local subcmd=$1 && shift
+    local cmd=$1 && shift
 
-    case $subcmd in
+    case $cmd in
         install) pacman -S "$@" ;;
         remove) pacman -R "$@" ;;
         autoremove) pacman -Rns $(pacman -Qdtq) "$@" ;;
@@ -133,18 +133,18 @@ arch_pma() {
         files) pkgfile -l "$@" ;;
         owns) pkgfile -s "$@" ;;
         clean) pacman -Sc "$@" ;;
-        repo) pacman -Sl "$@";;
-        * ) die "No such command: ${subcmd@Q}" ;;
+        source) pacman -Sl "$@";;
+        * ) die "No such command: ${cmd@Q}" ;;
     esac
 }
 
 debian_pma() {
     require_tool apt
-    has_tool apt-file || { apt install apt-file && apt-file update ; }
+    has_tool apt-file || { apt install -y apt-file && apt-file update ; } || die "Can not install 'apt-file'!"
 
-    local subcmd=$1 && shift
+    local cmd=$1 && shift
 
-    case $subcmd in
+    case $cmd in
         install) apt install "$@" ;;
         remove) apt remove "$@" ;;
         autoremove) apt autoremove "$@" ;;
@@ -156,8 +156,8 @@ debian_pma() {
         files) apt-file list "$@" ;;
         owns) apt-file search "$@" ;;
         clean) apt clean "$@" ;;
-        repo) apt-cache policy "$@" ;;
-        * ) die "No such command: ${subcmd@Q}" ;;
+        source) apt-cache policy "$@" ;;
+        * ) die "No such command: ${cmd@Q}" ;;
     esac
 }
 
@@ -168,9 +168,9 @@ ubuntu_pma() {
 fedora_pma() {
     require_tool dnf
 
-    local subcmd=$1 && shift
+    local cmd=$1 && shift
 
-    case $subcmd in
+    case $cmd in
         install) dnf install "$@" ;;
         remove) dnf remove "$@" ;;
         autoremove) dnf autoremove "$@" ;;
@@ -182,8 +182,8 @@ fedora_pma() {
         files) dnf repoquery --list "$@" ;;
         owns) dnf provides "$@" ;;
         clean) dnf clean all "$@" ;;
-        repo) dnf repolist "$@" ;;
-        * ) die "No such command: ${subcmd@Q}" ;;
+        source) dnf repolist "$@" ;;
+        * ) die "No such command: ${cmd@Q}" ;;
     esac
 }
 
@@ -202,11 +202,11 @@ redhat_pma() {
     [[ $version -lt 8 ]] || { fedora_pma "$@" ; return $? ; }
 
     require_tool yum
-    has_tool repoquery || { yum install yum-utils ; }
+    has_tool repoquery || { yum install -y yum-utils ; } || die "Can not install 'yum-utils'!"
 
-    local subcmd=$1 && shift
+    local cmd=$1 && shift
 
-    case $subcmd in
+    case $cmd in
         install) yum install "$@" ;;
         remove) yum remove "$@" ;;
         autoremove) yum autoremove "$@" ;;
@@ -218,17 +218,17 @@ redhat_pma() {
         files) repoquery --list "$@" ;;
         owns) repoquery --provides "$@" ;;
         clean) yum clean all "$@" ;;
-        repo) yum repolist "$@" ;;
-        * ) die "No such command: ${subcmd@Q}" ;;
+        source) yum repolist "$@" ;;
+        * ) die "No such command: ${cmd@Q}" ;;
     esac
 }
 
 opensuse_pma() {
     require_tool zypper
 
-    local subcmd=$1 && shift
+    local cmd=$1 && shift
 
-    case $subcmd in
+    case $cmd in
         install) zypper install "$@" ;;
         remove) zypper remove "$@" ;;
         autoremove) zypper rm --clean-deps "$@" ;;
@@ -240,18 +240,18 @@ opensuse_pma() {
         files) zypper packages --files "$@" ;;
         owns) zypper wp "$@" ;;
         clean) zypper clean "$@" ;;
-        repo) zypper lr "$@" ;;
-        * ) die "No such command: ${subcmd@Q}" ;;
+        source) zypper lr "$@" ;;
+        * ) die "No such command: ${cmd@Q}" ;;
     esac
 }
 
 gentoo_pma() {
     require_tool emerge
-    has_tool equery || { emerge gentoolkit ; }
+    has_tool equery || { emerge gentoolkit ; } || die "Can not install 'gentoolkit'!"
 
-    local subcmd=$1 && shift
+    local cmd=$1 && shift
 
-    case $subcmd in
+    case $cmd in
         install) emerge "$@" ;;
         remove) emerge --unmerge "$@" ;;
         autoremove) emerge --depclean "$@" ;;
@@ -263,18 +263,18 @@ gentoo_pma() {
         files) equery files "$@" ;;
         owns) equery belongs "$@" ;;
         clean) eclean-dist "$@" ;;
-        repo) eselect repository list "$@" ;;
-        * ) die "No such command: ${subcmd@Q}" ;;
+        source) eselect repository list "$@" ;;
+        * ) die "No such command: ${cmd@Q}" ;;
     esac
 }
 
 openwrt_pma() {
     require_tool opkg
-    has_tool find || { opkg install findutils ; }
+    has_tool find || { opkg install findutils ; } || die "Can not install 'findutils'!"
 
-    local subcmd=$1 && shift
+    local cmd=$1 && shift
 
-    case $subcmd in
+    case $cmd in
         install) opkg install "$@" ;;
         remove) opkg remove "$@" ;;
         autoremove) true ;;
@@ -293,17 +293,67 @@ openwrt_pma() {
                     pkg="$(opkg search "$(which "$file")")"
                 fi
                 echo "$file: $pkg"
-            done
-            ;;
+            done ;;
         clean) opkg clean "$@" ;;
-        repo)
+        source)
             if [[ ${#@} -eq 0 ]]; then
                 grep '^src' /etc/opkg.conf $(find /etc/opkg -name *.conf)
             else
                 grep '^src' "$@"
+            fi ;;
+        * ) die "No such command: ${cmd@Q}" ;;
+    esac
+}
+
+pmp_link_repo() {
+    local repo="$1"
+    [[ -d $repo ]] || die "No such directory ${repo@Q}, fail to create or link repo!"
+    # return when $repo and $PMP_REPO are the same
+    [[ $(readlink -f "$repo") != $(readlink -f "$PMP_REPO") ]] || return 0
+    # backup the conf dir and file first
+    [[ ! -d $PMP_REPO ]] || mv "$PMP_REPO" "$PMP_REPO-$(date +%Y%m%d%H%M%S)"
+    ln -s "$(readlink -f "$repo")" "$PMP_REPO"
+}
+
+pmp_git() {
+    local cmd=$1 && shift
+    local tmpfile="$(mktemp -u)"
+
+    case $cmd in
+        init)
+            if [[ $# -eq 0 ]]; then
+                git init "$PMP_REPO" | tee "$tmpfile"
+            else
+                git init "$@" | tee "$tmpfile"
             fi
-            ;;
-        * ) die "No such command: ${subcmd@Q}" ;;
+            # git init success
+            if [[ ${PIPESTATUS[0]} -eq 0 ]]; then
+                local repo="$(dirname "$(awk '/Initialized/ {print $6}' "$tmpfile")")"
+                rm -rf "$tmpfile"
+                touch "$repo/pmp.conf"
+                pmp_link_repo "$repo"
+            else
+                rm -rf "$tmpfile" && die "pmp init failed!"
+            fi ;;
+        clone)
+            git clone "$@" 2>&1 | tee "$tmpfile"
+            # git clone success
+            if [[ ${PIPESTATUS[0]} -eq 0 ]]; then
+                local repo="$(awk '/Cloning into/ {print $3}' "$tmpfile" | sed -r "s/\.{3}$//g;s/'//g")"
+                rm -rf "$tmpfile"
+                pmp_link_repo "$repo"
+            else
+                rm -rf "$tmpfile" && die "pmp clone failed!"
+            fi ;;
+        config)
+            # first init pmp conf
+            [[ -d $PMP_REPO && -e $PMP_CONF ]] || { mkdir -p "$PMP_REPO" && touch "$PMP_CONF" ; }
+            if [[ $* =~ (--local|--global|--system|--worktree) ]]; then
+                git -C "$PMP_REPO" config "$@"
+            else
+                git config --file "$PMP_CONF" "$@"
+            fi ;;
+        *) git -C "$PMP_REPO" "$cmd" "$@" ;;
     esac
 }
 
@@ -312,11 +362,41 @@ pmp() {
     local VERSION="v0.1.0"
     local HELP=$(cat <<EOF
 $PROGRAM $VERSION
-$PROGRAM [-hvD] args
+$PROGRAM [-hvD] <cmd> args...
     
     -h  print this help message 
     -v  print version number
     -D  turn on debug mode
+
+Linux package managment commands:
+
+    install     install packages
+    remove      remove packages
+    autoremove  automatically remove all unused packages
+    update      update list of available packages
+    upgrade     upgrade the system by installing/upgrading packages
+    search      search packages
+    list        list installed packages
+    info        show package infomations
+    files       list all files owned by a package
+    owns        list packages provide the given file
+    clean       clean the local repository of retrieved package files (cache)
+    source      list the repository list
+
+Configuration managment commands:
+
+    init        init a new configuration repo
+    clone       clone a configuration repo
+    config      configuration operations of pmp and git repo
+    keep        add configuration files to the repo
+    free        remove configuration files from the repo
+    pin         add package deps to pmp configuration file
+    unpin       rmove package deps to pmp configuration file
+    sync        install dependence packages and configure
+    deps        show packages deps
+    enter       change directory to the pmp configuration repo
+
+Others commands will be passed to git, you can type 'git help <cmd>' for help.
 
 This program is released under the terms of the MIT License.
 EOF
@@ -328,22 +408,28 @@ EOF
     [[ ${opts[h]} ]] && usage && return 0
     [[ ${opts[v]} ]] && version && return 0
 
-    require_tool git
+    require_tool git awk sed
 
     # run without args will print help message
     [[ $# -gt 0 ]] || { usage && return 0; } 
 
-    local subcmd=$1 && shift
+    # configure default variables
+    local PMP_REPO="${PMP_REPO:-$HOME/.pmp}"
+    local PMP_CONF="${PMP_CONF:-$PMP_REPO/pmp.conf}"
 
-    case $subcmd in
-        install|remove|autoremove|update|upgrade|search|list|info|files|owns|clean|repo)
-            $(linux_pma) "$subcmd" "$@" ;;
-        bootstrap) : ;;
-        config) git config "$@";;
-        git) git "$@" ;;
-        version) version && return 0 ;;
-        help) usage && return 0 ;;
-        * ) die "No such command: ${subcmd@Q}" ;;
+    [[ -d $PMP_REPO ]] || mkdir -p "$PMP_REPO" || die "Can not create pmp repo dir: ${PMP_REPO}"
+
+    case $1 in
+        # Linux package managment commands
+        install|remove|autoremove|update|upgrade|search|list|info|files|owns|clean|source)
+            $(linux_pma) "$@" ;;
+        # Configuration managment commands
+        keep|free|pin|unpin|sync|deps|enter) : ;;
+        # Misc commands
+        version) version ;;
+        help) usage ;;
+        # Others will be passed to pmp_git
+        *) pmp_git "$@" ;;
     esac
 }
 

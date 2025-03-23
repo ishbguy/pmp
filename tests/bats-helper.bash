@@ -83,14 +83,20 @@ assert_match() {
 }
 assert_success() {
     if [ "$status" -ne 0 ]; then
-        flunk "command failed with exit status $status"
+        {
+            echo "command failed with exit status $status, output:"
+            echo "$output"
+        } | flunk
     elif [ "$#" -gt 0 ]; then
         assert_output "$1"
     fi
 }
 assert_failure() {
     if [ "$status" -eq 0 ]; then
-        flunk "expected failed exit status"
+        {
+            echo "command success with output:"
+            echo "$output"
+        } | flunk
     elif [ "$#" -gt 0 ]; then
         assert_output "$1"
     fi
