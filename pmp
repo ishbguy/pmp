@@ -10,9 +10,12 @@ readonly PMP_ABS_DIR="$(dirname "$PMP_ABS_SRC")"
 
 # Utils
 PMP_EXIT_CODE=0
-warn() { echo -e "$@" >&2; ((++PMP_EXIT_CODE)); return ${WERROR:-1}; }
-die() { echo -e "$@" >&2; exit $((++PMP_EXIT_CODE)); }
-debug() { [[ $DEBUG == 1 ]] && echo "$@" || true; }
+PMP_WARN_CODE=0
+warn() { echo -e "WARN:" "$@" >&2; return $((++PMP_WARN_CODE)); }
+error() { echo -e "ERROR:" "$@" >&2; return $((++PMP_EXIT_CODE)); }
+die() { echo -e "ERROR:" "$@" >&2; exit $((++PMP_EXIT_CODE)); }
+info() { echo -e "INFO:" "$@" >&2; }
+debug() { [[ $DEBUG == 1 ]] && echo -e "DEBUG:" "$@" >&2 || true; }
 usage() { echo -e "$HELP"; }
 version() { echo -e "$PROGRAM $VERSION"; }
 defined() { declare -p "$1" &>/dev/null; }
@@ -98,6 +101,26 @@ inicfg() { require_tool git && git config --file "$@"; }
 # Linux package manager agent
 
 linux_pma() {
+    local HELP=$(cat <<EOF
+Linux package managment commands:
+
+    install     install packages
+    remove      remove packages
+    autoremove  automatically remove all unused packages
+    update      update list of available packages
+    upgrade     upgrade the system by installing/upgrading packages
+    search      search packages
+    list        list installed packages
+    info        show package infomations
+    files       list all files owned by a package
+    owns        list packages provide the given file
+    clean       clean the local repository of retrieved package files (cache)
+    source      list the repository list
+EOF
+)
+
+    [[ $# -eq 0 ]] || { usage && return 0 ; }
+
     local distro line
     if [[ -f /etc/os-release ]]; then
         while IFS='' read -r line || [[ -n "$line" ]]; do
@@ -306,6 +329,22 @@ openwrt_pma() {
 }
 
 pmp_cma() {
+    local HELP=$(cat <<EOF
+Configuration managment commands:
+
+    init        init a new configuration repo
+    clone       clone a configuration repo
+    config      configuration operations of pmp and git repo
+    pin         add package deps to pmp configuration file
+    unpin       rmove package deps to pmp configuration file
+    keep        add configuration files to the repo
+    free        remove configuration files from the repo
+    sync        install dependence packages and configure files
+    deps        show packages deps
+
+Others commands will be passed to git, you can type 'git help <cmd>' for help.
+EOF
+)
     local cmd=$1 && shift
     local obj
 
@@ -331,26 +370,27 @@ pmp_cma() {
                 && eval ln -s "$(readlink -f "$target")" "$cfg" \
                 && pmp_git config "cfg.'${target##"$PMP_REPO"/}'.link" "$cfg" \
                 && pmp_git add "$PMP_CONF" "${target##"${PMP_REPO}"/}" \
-                && pmp_git commit -m "keep $cfg"
+                && pmp_git commit -m "keep $cfg" \
+                || die "Failed to keep $1"
             ;;
         free)
             [[ $# -gt 0 ]] || die "Usage: pmp free <config> ..."
 
-            local -a miss=()
             local origin=""
 
             for cfg in "$@"; do
-                [[ -e $PMP_REPO/$cfg ]] || warn "No such file or directory in repo: $cfg" || continue
+                [[ -e $PMP_REPO/$cfg ]] || error "No such file or directory in repo: $cfg" || continue
                 if pmp config --get-regexp "cfg.'$cfg'.link" &>/dev/null; then
                     origin="$(pmp config --get-regexp "cfg.'$cfg'.link" 2>/dev/null | awk '{print $2}')"
-                    [[ -e $origin ]] || echo "Warn: can not find the link: $origin -> $cfg" >&2
+                    [[ -e $origin ]] || warn "Can not find the link: $origin -> $cfg" >&2
                     eval rm -rf "$origin" && eval cp -rp "$PMP_REPO/$cfg" "$origin" \
                         && pmp_git config --unset "cfg.'$cfg'.link" \
                         && pmp_git add "$PMP_CONF" \
                         && pmp_git rm -r "$cfg" \
-                        && pmp_git commit -m "free $cfg"
+                        && pmp_git commit -m "free $cfg" \
+                        || error "Failed to free $cfg"
                 else
-                    warn "${cfg@Q} is not directly kept as a file, maybe kept as a directory."
+                    error "${cfg@Q} is not directly kept as a file, maybe kept in a directory."
                 fi
             done
             return "$PMP_EXIT_CODE"
@@ -359,6 +399,7 @@ pmp_cma() {
             ;;
         deps)
             ;;
+        help) usage ;;
         *) die "No such command: ${cmd@Q}" ;;
     esac
 }
@@ -388,7 +429,7 @@ pmp_git() {
             if [[ ${PIPESTATUS[0]} -eq 0 ]]; then
                 local repo="$(dirname "$(awk '/Initialized/ {print $6}' "$tmpfile")")"
                 rm -rf "$tmpfile"
-                (cd "$repo" && touch pmp.conf && git add pmp.conf && git commit -am "first init pmp")
+                (cd "$repo" && touch pmp.conf && git add pmp.conf && git commit -am "first init repo")
                 pmp_link_repo "$repo"
             else
                 rm -rf "$tmpfile" && die "pmp init failed!"
@@ -415,66 +456,71 @@ pmp_git() {
     esac
 }
 
+pmp_self_install() {
+    local -a miss=() fails=()
+    echo -e "Checking for dependences:"
+    for t in "${deps[@]}"; do
+        if has_tool "$t"; then
+            echo -e "$t ... OK"
+        else
+            echo -e "$t ... NOT FOUNDED" && miss+=("$t")
+        fi
+    done
+    [[ ${#miss[@]} -eq 0 ]] || {
+        echo -e "Need to install: ${miss[*]}"
+        for t in "${miss[@]}"; do
+            $(linux_pma) install "$t" || fails+=("$t")
+        done
+        [[ ${#fails[@]} -eq 0 ]] || die "Failed to install tools: ${fails[*]}"
+    }
+}
+
 pmp() {
     local PROGRAM="$(basename "${BASH_SOURCE[0]}")"
     local VERSION="v0.2.0"
     local HELP=$(cat <<EOF
 $PROGRAM $VERSION
-$PROGRAM [-hvD] <cmd> args...
+$PROGRAM [-frIvhD] [file|dir] <cmd> args...
 
-    -h  print this help message 
+    -f  specify the configuration file
+    -r  specify the repo directory
+    -I  self install and update
     -v  print version number
+    -h  print this help message
     -D  turn on debug mode
 
-Linux package managment commands:
+General commands:
 
-    install     install packages
-    remove      remove packages
-    autoremove  automatically remove all unused packages
-    update      update list of available packages
-    upgrade     upgrade the system by installing/upgrading packages
-    search      search packages
-    list        list installed packages
-    info        show package infomations
-    files       list all files owned by a package
-    owns        list packages provide the given file
-    clean       clean the local repository of retrieved package files (cache)
-    source      list the repository list
+    self-install   self install and update
+    version        print version number
+    help           print this help message
 
-Configuration managment commands:
+$(linux_pma help)
 
-    init        init a new configuration repo
-    clone       clone a configuration repo
-    config      configuration operations of pmp and git repo
-    pin         add package deps to pmp configuration file
-    unpin       rmove package deps to pmp configuration file
-    keep        add configuration files to the repo
-    free        remove configuration files from the repo
-    sync        install dependence packages and configure
-    deps        show packages deps
-
-Others commands will be passed to git, you can type 'git help <cmd>' for help.
+$(pmp_cma help)
 
 This program is released under the terms of the MIT License.
 EOF
 )
+    local -a deps=(git awk sed)
     local -A opts=() args=()
-    pargs opts args 'hvD' "$@"
+    pargs opts args 'hvDIf:r:' "$@"
     shift $((OPTIND - 1))
     [[ ${opts[D]} ]] && set -x
     [[ ${opts[h]} ]] && usage && return 0
     [[ ${opts[v]} ]] && version && return 0
+    [[ ${opts[I]} || $1 == "self-install" ]] && { pmp_self_install ; return $? ; }
 
-    require_tool git awk sed
+    require_tool "${deps[@]}"
 
     # run without args will print help message
     [[ $# -gt 0 ]] || { usage && return 0; } 
 
     # configure default variables
-    local PMP_REPO="${PMP_REPO:-$HOME/.pmp}"
-    local PMP_CONF="${PMP_CONF:-$PMP_REPO/pmp.conf}"
+    local PMP_REPO="${opts[r]:-${PMP_REPO:-$HOME/.pmp}}"
+    local PMP_CONF="${opts[f]:-${PMP_CONF:-$PMP_REPO/pmp.conf}}"
 
-    [[ -d $PMP_REPO ]] || mkdir -p "$PMP_REPO" || die "Can not create pmp repo dir: ${PMP_REPO}"
+    [[ -d $PMP_REPO ]] || mkdir -p "$PMP_REPO" || die "Failed to create pmp repo dir: ${PMP_REPO}"
 
     case $1 in
         # Linux package managment commands
@@ -482,7 +528,7 @@ EOF
             $(linux_pma) "$@" ;;
         # Configuration managment commands
         pin|unpin|keep|free|sync|deps) pmp_cma "$@" ;;
-        # Misc commands
+        # General commands
         version) version ;;
         help) usage ;;
         # Others will be passed to pmp_git
