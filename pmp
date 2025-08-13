@@ -146,7 +146,7 @@ arch_pma() {
     local cmd=$1 && shift
 
     case $cmd in
-        install) pacman -S "$@" ;;
+        install) [[ $1 == "-y" ]] && shift && pacman -S --noconfirm "$@" || pacman -S "$@" ;;
         remove) pacman -R "$@" ;;
         autoremove) pacman -Rns $(pacman -Qdtq) "$@" ;;
         update) pacman -Sy "$@" ;;
@@ -257,7 +257,15 @@ openwrt_pma() {
     local cmd=$1 && shift
 
     case $cmd in
-        install) opkg install "$@" ;;
+        install)
+            if [[ $1 == "-y" ]]; then
+                shift && opkg install --force-depends --force-maintainer --force-reinstall \
+                    --force-overwrite --force-downgrade --force-space --force-postinstall \
+                    --force-remove --force-checksum "$@"
+            else
+                opkg install "$@"
+            fi
+            ;;
         remove) opkg remove "$@" ;;
         autoremove) true ;;
         update) opkg update "$@" ;;
@@ -433,7 +441,7 @@ pmp_self_install() {
         echo -e "Need to install: ${miss[*]}"
         for t in "${miss[@]}"; do
             $(linux_pma) update || true
-            $(linux_pma) install "$t" || fails+=("$t")
+            $(linux_pma) install -y "$t" || fails+=("$t")
         done
         if [[ ${#fails[@]} -eq 0 ]]; then
             echo "Self installation done!"

@@ -33,7 +33,7 @@ $(TEST_OS): bats ## Run test in specific OS
 		pmp self-install && \
 		git config --global user.email test@example.com && \
 		git config --global user.name test && \
-		pmp install make && \
+		pmp install -y make && \
 		make test-all \
 		" 2>&1 | tee -a $(TEST_LOG)
 	@echo "========== Action done at $$(date '+%Y-%m-%d %H:%M:%S') in $@  ==========" 2>&1 | tee -a $(TEST_LOG)
