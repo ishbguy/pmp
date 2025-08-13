@@ -6,13 +6,19 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-node@v2
-      - name: Run bacon tests by bats
+      - name: Run tests by bats
         shell: 'script -q -e -c "bash {0}"' # work around tty issues
         env:
           TERM: linux # fix tput for tty issue work around
         run: |
-          sudo npm install -g bats
-          bats tests
+          sudo bash -c "
+            export CI=true
+            git config --global user.email "test@example.com"
+            git config --global user.name "test"
+            git config --global init.defaultBranch main
+            npm install -g bats
+            bats tests
+          "
 
   # bash-version:
   #   strategy:
