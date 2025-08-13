@@ -154,10 +154,14 @@ EOF
             zypper ar -cfg 'https://mirrors.ustc.edu.cn/opensuse/tumbleweed/repo/non-oss/' mirror-non-oss
             zypper ar -fcg 'https://mirrors.ustc.edu.cn/opensuse/update/tumbleweed' mirror-update
             ;;
-        *openwrt)
+        *openwrt|*immortalwrt)
+            sed -i 's|-SNAPSHOT|.0|g' /etc/opkg/distfeeds.conf
+            sed -i 's|immortalwrt|openwrt|g' /etc/opkg/distfeeds.conf
             sed -i 's|https\?://downloads.openwrt.org|https://mirrors.aliyun.com/openwrt|' /etc/opkg/distfeeds.conf
+            [[ -d /var/lock ]] || mkdir -p /var/lock || die "Can not mkdir -p /var/lock!"
+            opkg update
+            opkg install coreutils-nl
             ;;
-        *immortalwrt) : ;;
         *) die "No such distro: ${1@Q}" ;;
     esac
 }

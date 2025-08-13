@@ -127,6 +127,7 @@ EOF
             if [[ $line = ID* ]]; then
                 distro="${line#ID=}"
                 distro="${distro//\"/}"
+                distro="${distro//-/_}"
                 break
             fi
         done </etc/os-release
@@ -140,7 +141,7 @@ EOF
 
 arch_pma() {
     require_tool pacman
-    has_tool pkgfile || { pacman -S --noconfirm pkgfile && pkgfile -u ; } || die "Can not install 'pkgfile'!"
+    has_tool pkgfile || { pacman -Sy --noconfirm pkgfile && pkgfile -u ; } || die "Can not install 'pkgfile'!"
 
     local cmd=$1 && shift
 
@@ -163,7 +164,7 @@ arch_pma() {
 
 debian_pma() {
     require_tool apt
-    has_tool apt-file || { apt install -y apt-file && apt-file update ; } || die "Can not install 'apt-file'!"
+    has_tool apt-file || { apt update && apt install -y apt-file && apt-file update ; } || die "Can not install 'apt-file'!"
 
     local cmd=$1 && shift
 
@@ -211,39 +212,11 @@ fedora_pma() {
 }
 
 redhat_pma() {
-    local version line
-    if [[ -f /etc/os-release ]]; then
-        while IFS='' read -r line || [[ -n "$line" ]]; do
-            if [[ $line = VERSION_ID* ]]; then
-                version="${line#VERSION_ID=}"
-                version="${version//\"/}"
-                break
-            fi
-        done </etc/os-release
-    fi
+    fedora_pma "$@"
+}
 
-    [[ $version -lt 8 ]] || { fedora_pma "$@" ; return $? ; }
-
-    require_tool yum
-    has_tool repoquery || { yum install -y yum-utils ; } || die "Can not install 'yum-utils'!"
-
-    local cmd=$1 && shift
-
-    case $cmd in
-        install) yum install "$@" ;;
-        remove) yum remove "$@" ;;
-        autoremove) yum autoremove "$@" ;;
-        update) yum check-update "$@" ;;
-        upgrade) yum upgrade "$@" ;;
-        search) yum search "$@" ;;
-        list) yum list installed "$@" ;;
-        info) yum info "$@" ;;
-        files) repoquery --list "$@" ;;
-        owns) repoquery --provides "$@" ;;
-        clean) yum clean all "$@" ;;
-        source) yum repolist "$@" ;;
-        * ) die "No such command: ${cmd@Q}" ;;
-    esac
+rhel_pma() {
+    fedora_pma "$@"
 }
 
 opensuse_pma() {
@@ -268,32 +241,18 @@ opensuse_pma() {
     esac
 }
 
-gentoo_pma() {
-    require_tool emerge
-    has_tool equery || { emerge gentoolkit ; } || die "Can not install 'gentoolkit'!"
+opensuse_leap_pma() {
+    opensuse_pma "$@"
+}
 
-    local cmd=$1 && shift
-
-    case $cmd in
-        install) emerge "$@" ;;
-        remove) emerge --unmerge "$@" ;;
-        autoremove) emerge --depclean "$@" ;;
-        update) emerge --sync "$@" ;;
-        upgrade) emerge -avuDU "$@" ;;
-        search) emerge --search "$@" ;;
-        list) emerge -ep "$@" ;;
-        info) emerge -pv "$@" ;;
-        files) equery files "$@" ;;
-        owns) equery belongs "$@" ;;
-        clean) eclean-dist "$@" ;;
-        source) eselect repository list "$@" ;;
-        * ) die "No such command: ${cmd@Q}" ;;
-    esac
+opensuse_tumbleweed_pma() {
+    opensuse_pma "$@"
 }
 
 openwrt_pma() {
     require_tool opkg
-    has_tool find || { opkg install findutils ; } || die "Can not install 'findutils'!"
+    [[ -d /var/lock ]] || mkdir -p /var/lock || die "Can not mkdir -p /var/lock!"
+    has_tool find || { opkg update && opkg install findutils ; } || die "Can not install 'findutils'!"
 
     local cmd=$1 && shift
 
@@ -328,6 +287,10 @@ openwrt_pma() {
     esac
 }
 
+immortalwrt_pma() {
+    openwrt_pma "$@"
+}
+
 pmp_cma() {
     local HELP=$(cat <<EOF
 Configuration managment commands:
@@ -349,8 +312,8 @@ EOF
     local obj
 
     case $cmd in
-        pin)   for obj in "$@"; do pmp_git config "cmds.$obj" true; done ;;
-        unpin) for obj in "$@"; do pmp_git config --unset "cmds.$obj" ; done ;;
+        pin)   for obj in "$@"; do pmp_git config "cmd.$obj" true; done ;;
+        unpin) for obj in "$@"; do pmp_git config --unset "cmd.$obj" ; done ;;
         keep)
             [[ $# -eq 1 || $# -eq 2 ]] || die "Usage: pmp keep <config> [target]"
             [[ -e $1 ]] || die "No such file or directory."
@@ -469,9 +432,14 @@ pmp_self_install() {
     [[ ${#miss[@]} -eq 0 ]] || {
         echo -e "Need to install: ${miss[*]}"
         for t in "${miss[@]}"; do
+            $(linux_pma) update || true
             $(linux_pma) install "$t" || fails+=("$t")
         done
-        [[ ${#fails[@]} -eq 0 ]] || die "Failed to install tools: ${fails[*]}"
+        if [[ ${#fails[@]} -eq 0 ]]; then
+            echo "Self installation done!"
+        else
+            die "Failed to install tools: ${fails[*]}"
+        fi
     }
 }
 
