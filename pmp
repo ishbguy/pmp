@@ -144,19 +144,20 @@ arch_pma() {
     has_tool pkgfile || { pacman -Sy --noconfirm pkgfile && pkgfile -u ; } || die "Can not install 'pkgfile'!"
 
     local cmd=$1 && shift
+    local ita && [[ $1 == "-y" ]] && ita="--noconfirm" && shift
 
     case $cmd in
-        install) [[ $1 == "-y" ]] && shift && pacman -S --noconfirm "$@" || pacman -S "$@" ;;
-        remove) pacman -R "$@" ;;
-        autoremove) pacman -Rns $(pacman -Qdtq) "$@" ;;
-        update) pacman -Sy "$@" ;;
-        upgrade) pacman -Syu "$@" ;;
+        install) pacman "$ita" -S "$@" ;;
+        remove) pacman "$ita" -R "$@" ;;
+        autoremove) pacman "$ita" -Rns $(pacman -Qdtq) "$@" ;;
+        update) pacman "$ita" -Sy "$@" ;;
+        upgrade) pacman "$ita" -Syu "$@" ;;
         search) pacman -Ss "$@" ;;
         list) pacman -Q "$@" ;;
         info) pacman -Si "$@" ;;
         files) pkgfile -l "$@" ;;
         owns) pkgfile -s "$@" ;;
-        clean) pacman -Sc "$@" ;;
+        clean) pacman "$ita" -Sc "$@" ;;
         source) pacman -Sl "$@";;
         * ) die "No such command: ${cmd@Q}" ;;
     esac
@@ -255,21 +256,17 @@ openwrt_pma() {
     has_tool find || { opkg update && opkg install findutils ; } || die "Can not install 'findutils'!"
 
     local cmd=$1 && shift
+    local -a ita=() && [[ $1 == "-y" ]] \
+        && ita=(--force-depends --force-maintainer --force-reinstall --force-overwrite
+                --force-downgrade --force-space --force-postinstall --force-remove --force-checksum) \
+        && shift
 
     case $cmd in
-        install)
-            if [[ $1 == "-y" ]]; then
-                shift && opkg install --force-depends --force-maintainer --force-reinstall \
-                    --force-overwrite --force-downgrade --force-space --force-postinstall \
-                    --force-remove --force-checksum "$@"
-            else
-                opkg install "$@"
-            fi
-            ;;
-        remove) opkg remove "$@" ;;
-        autoremove) true ;;
-        update) opkg update "$@" ;;
-        upgrade) opkg upgrade "$@" ;;
+        install) opkg install "${ita[@]}" "$@" ;;
+        remove) opkg remove "${ita[@]}" "$@" ;;
+        autoremove) : "${ita[@]}" "$@" ;;
+        update) opkg update "${ita[@]}" "$@" ;;
+        upgrade) opkg upgrade "${ita[@]}" "$@" ;;
         search) opkg find "$@" ;;
         list) opkg list-installed "$@" ;;
         info) opkg info "$@" ;;
@@ -284,7 +281,7 @@ openwrt_pma() {
                 fi
                 echo "$file: $pkg"
             done ;;
-        clean) opkg clean "$@" ;;
+        clean) opkg clean "${ita[@]}" "$@" ;;
         source)
             if [[ ${#@} -eq 0 ]]; then
                 grep '^src' /etc/opkg.conf $(find /etc/opkg -name *.conf)
