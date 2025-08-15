@@ -9,8 +9,10 @@
 
 ```
 
-[![Version][versvg]][ver] [![License][licsvg]][lic]
+[![CI][cisvg]][ci] [![Version][versvg]][ver] [![License][licsvg]][lic]
 
+[cisvg]: https://github.com/ishbguy/pmp/actions/workflows/bats-test.yml/badge.svg
+[ci]: https://github.com/ishbguy/pmp/actions/workflows/bats-test.yml
 [versvg]: https://img.shields.io/badge/version-v0.2.0-lightgrey.svg
 [ver]: https://img.shields.io/badge/version-v0.2.0-lightgrey.svg
 [licsvg]: https://img.shields.io/badge/license-MIT-green.svg
@@ -31,21 +33,27 @@ pmp, an unified Linux package manager and user friendly configuration manager.
 
 ## :art: Features
 
-- Unified package manager of Linux distro
+- Unified package manager of most popular Linux distros
 - Flexiblely manage your configurations
 - Easily bootstrap a new system or environment
-- Versioning powered by git
+- Versioning control powered by git
 
 ## :straight_ruler: Prerequisite
 
 > - bash
+> - awk
 > - git
 
 ## :rocket: Installation
 
 ```sh
-git clone https://github.com/ishbguy/pmp /path/to/pmp
-cd /path/to/pmp && ./pmp self-install
+git clone https://github.com/ishbguy/pmp && ./pmp self-install
+```
+
+or
+
+```sh
+curl -fLo pmp https://rawgithubusercontent.com/ishbguy/pmp/main/pmp && ./pmp self-install
 ```
 
 ## :notebook: Usage
@@ -101,22 +109,8 @@ This program is released under the terms of the MIT License.
 
 ## :memo: Configuration
 
-### Environment variables
-
 - `PMP_REPO`: Environment variable of pmp repo.
 - `PMP_CONF`: Environment variable of pmp configuration file.
-
-### Configuration files specs
-
-The configuration syntax can reference `git config --help`, the pmp specific sections are as below:
-
-- `[cmds]`: command list
-    * <cmd-name>: [true|<cmd-name>]
-- `[cmd "<cmd-name>"]`
-    * 
-- `[pkgs]`
-- `[cfgs]`
-- `[cfg "<conf-file>"]`
 
 ## :hibiscus: Contributing
 
