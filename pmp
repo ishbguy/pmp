@@ -147,17 +147,17 @@ arch_pma() {
     local ita && [[ $1 == "-y" ]] && ita="--noconfirm" && shift
 
     case $cmd in
-        install) pacman "$ita" -S "$@" ;;
-        remove) pacman "$ita" -R "$@" ;;
-        autoremove) pacman "$ita" -Rns $(pacman -Qdtq) "$@" ;;
-        update) pacman "$ita" -Sy "$@" ;;
-        upgrade) pacman "$ita" -Syu "$@" ;;
+        install) pacman $ita -S "$@" ;;
+        remove) pacman $ita -R "$@" ;;
+        autoremove) pacman $ita -Rns $(pacman -Qdtq) "$@" ;;
+        update) pacman -Sy "$@" ;;
+        upgrade) pacman $ita -Syu "$@" ;;
         search) pacman -Ss "$@" ;;
         list) pacman -Q "$@" ;;
         info) pacman -Si "$@" ;;
         files) pkgfile -l "$@" ;;
         owns) pkgfile -s "$@" ;;
-        clean) pacman "$ita" -Sc "$@" ;;
+        clean) pacman $ita -Sc "$@" ;;
         source) pacman -Sl "$@";;
         * ) die "No such command: ${cmd@Q}" ;;
     esac
@@ -198,11 +198,11 @@ fedora_pma() {
     case $cmd in
         install) dnf install "$@" ;;
         remove) dnf remove "$@" ;;
-        autoremove) dnf autoremove "$@" ;;
-        update) dnf check-update "$@" ;;
+        autoremove) dnf autoremove ;;
+        update) dnf check-update "$@" || true ;;
         upgrade) dnf upgrade "$@" ;;
         search) dnf search "$@" ;;
-        list) dnf list installed "$@" ;;
+        list) dnf list --installed "$@" ;;
         info) dnf info "$@" ;;
         files) dnf repoquery --list "$@" ;;
         owns) dnf provides "$@" ;;
@@ -232,12 +232,21 @@ opensuse_pma() {
         update) zypper refresh "$@" ;;
         upgrade) zypper update "$@" ;;
         search) zypper search "$@" ;;
-        list) zypper search --installed "$@" ;;
+        list) zypper search --installed-only "$@" ;;
         info) zypper info "$@" ;;
-        files) zypper packages --files "$@" ;;
-        owns) zypper wp "$@" ;;
-        clean) zypper clean "$@" ;;
-        source) zypper lr "$@" ;;
+        files)
+            if zypper search --installed-only --match-exact "$@" &>/dev/null; then
+                rpm -ql "$@"
+            else
+                zypper install --download-only "$@" && rpm -qlp "$(find /var/cache/zypp -name "*${*}*")"
+            fi
+            ;;
+        owns) zypper what-provides "$@" ;;
+        clean)
+            [[ $1 == '-y' ]] && shift || true
+            zypper clean "$@"
+            ;;
+        source) zypper repos "$@" ;;
         * ) die "No such command: ${cmd@Q}" ;;
     esac
 }
@@ -264,8 +273,8 @@ openwrt_pma() {
     case $cmd in
         install) opkg install "${ita[@]}" "$@" ;;
         remove) opkg remove "${ita[@]}" "$@" ;;
-        autoremove) : "${ita[@]}" "$@" ;;
-        update) opkg update "${ita[@]}" "$@" ;;
+        autoremove) opkg remove --autoremove "${ita[@]}" "$@" ;;
+        update) opkg update "$@" || true ;;
         upgrade) opkg upgrade "${ita[@]}" "$@" ;;
         search) opkg find "$@" ;;
         list) opkg list-installed "$@" ;;
@@ -281,7 +290,7 @@ openwrt_pma() {
                 fi
                 echo "$file: $pkg"
             done ;;
-        clean) opkg clean "${ita[@]}" "$@" ;;
+        clean) rm -rf /var/opkg-lists/* ;;
         source)
             if [[ ${#@} -eq 0 ]]; then
                 grep '^src' /etc/opkg.conf $(find /etc/opkg -name *.conf)
@@ -436,8 +445,8 @@ pmp_self_install() {
     done
     [[ ${#miss[@]} -eq 0 ]] || {
         echo -e "Need to install: ${miss[*]}"
+        $(linux_pma) update
         for t in "${miss[@]}"; do
-            $(linux_pma) update || true
             $(linux_pma) install -y "$t" || fails+=("$t")
         done
         if [[ ${#fails[@]} -eq 0 ]]; then

@@ -35,10 +35,45 @@ load pmp-helper
 @test "pmp linux_pma" {
     run linux_pma
     assert_match "$(awk -F= '/^ID=/ {gsub(/-/, "_", $2); gsub(/"/, "", $2); print $2}' /etc/os-release)"
-    # run pmp install
-    # assert_failure
-    # run pmp list
-    # assert_success
+
+    run pmp update
+    assert_success
+
+    run pmp search tmux
+    assert_success
+    assert_match "tmux"
+
+    run pmp install -y tmux
+    assert_success
+
+    run pmp remove -y tmux
+    assert_success
+
+    run pmp install -y tmux
+    run pmp autoremove -y tmux
+    assert_success
+
+    run pmp install -y tmux
+    run pmp list
+    assert_success
+    assert_match "tmux"
+
+    run pmp info tmux
+    assert_success
+    assert_match "tmux"
+
+    run pmp files tmux
+    assert_success
+    assert_match "tmux"
+
+    run pmp owns tmux
+    assert_success
+
+    run pmp clean -y
+    assert_success
+
+    run pmp source
+    assert_success
 }
 
 @test "pmp init" {
