@@ -11,7 +11,7 @@
 
 [![CI][cisvg]][ci] [![Version][versvg]][ver] [![License][licsvg]][lic]
 
-[cisvg]: https://github.com/ishbguy/pmp/actions/workflows/bats-test.yml/badge.svg
+[cisvg]: https://github.com/ishbguy/pmp/actions/workflows/ci.yml/badge.svg
 [ci]: https://github.com/ishbguy/pmp/actions/workflows/bats-test.yml
 [versvg]: https://img.shields.io/badge/version-v0.2.0-lightgrey.svg
 [ver]: https://img.shields.io/badge/version-v0.2.0-lightgrey.svg
@@ -47,7 +47,7 @@ pmp, an unified Linux package manager and user friendly configuration manager.
 ## :rocket: Installation
 
 ```sh
-git clone https://github.com/ishbguy/pmp && ./pmp self-install
+git clone https://github.com/ishbguy/pmp && ./pmp/pmp self-install
 ```
 
 or
