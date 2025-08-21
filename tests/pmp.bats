@@ -7,87 +7,74 @@ load pmp-helper
     local PMP_REPO="$PROJECT_TMP_DIR/pmp"
     local PMP_CONF="$PMP_REPO/pmp.conf"
 
-    run pmp no-such-cmd
+    run_fail pmp no-such-cmd
     assert_match "not a git command"
 }
 
 @test "pmp debug" {
-    run pmp -D
+    run_ok pmp -D
     assert_match "^\+"
 }
 
 @test "pmp version" {
-    run pmp -v
+    run_ok pmp -v
     assert_match "pmp v([0-9]+.?){3}"
-    run pmp version
+    run_ok pmp version
     assert_match "pmp v([0-9]+.?){3}"
 }
 
 @test "pmp help" {
-    run pmp
+    run_ok pmp
     assert_match "print this help message"
-    run pmp -h
+    run_ok pmp -h
     assert_match "print this help message"
-    run pmp help
+    run_ok pmp help
     assert_match "print this help message"
 }
 
 @test "pmp linux_pma" {
-    run linux_pma
+    run_ok linux_pma
     assert_match "$(awk -F= '/^ID=/ {gsub(/-/, "_", $2); gsub(/"/, "", $2); print $2}' /etc/os-release)"
 
-    run pmp update
-    assert_success
+    run_ok pmp update
 
-    run pmp search tmux
-    assert_success
+    run_ok pmp search tmux
     assert_match "tmux"
 
-    run pmp install -y tmux
-    assert_success
+    run_ok pmp install -y tmux
 
-    run pmp remove -y tmux
-    assert_success
+    run_ok pmp remove -y tmux
 
-    run pmp install -y tmux
-    run pmp autoremove -y tmux
-    assert_success
+    run_ok pmp install -y tmux
+    run_ok pmp autoremove -y tmux
 
-    run pmp install -y tmux
-    run pmp list
-    assert_success
+    run_ok pmp install -y tmux
+    run_ok pmp list
     assert_match "tmux"
 
-    run pmp info tmux
-    assert_success
+    run_ok pmp info tmux
     assert_match "tmux"
 
-    run pmp files tmux
-    assert_success
+    run_ok pmp files tmux
     assert_match "tmux"
 
-    run pmp owns tmux
-    assert_success
+    run_ok pmp owns tmux
 
-    run pmp clean -y
-    assert_success
+    run_ok pmp clean -y
 
-    run pmp source
-    assert_success
+    run_ok pmp source
 }
 
 @test "pmp init" {
     local PMP_REPO="$PROJECT_TMP_DIR/pmp"
     local PMP_CONF="$PMP_REPO/pmp.conf"
 
-    run pmp init
-    assert_success
+    run_ok pmp init
     assert_match "Initialized empty Git repository"
     [[ -e $PMP_CONF ]]
 
     rm -rf "$PMP_REPO" && mkdir -p "$PMP_REPO"
-    run pmp init "$PMP_REPO"
-    assert_success
+    run_ok pmp init "$PMP_REPO"
     assert_match "Initialized empty Git repository"
     [[ -e $PMP_CONF ]]
 }
@@ -102,8 +89,7 @@ load pmp-helper
     git -C "$PMP_REMOTE" add pmp.conf
     git -C "$PMP_REMOTE" commit -am 'test'
 
-    run pmp clone "$PMP_REMOTE" "$PMP_REPO"
-    assert_success
+    run_ok pmp clone "$PMP_REMOTE" "$PMP_REPO"
     assert_match "Cloning into '$PMP_REPO'"
     [[ -e $PMP_CONF ]]
 }
@@ -112,30 +98,22 @@ load pmp-helper
     local PMP_REPO="$PROJECT_TMP_DIR/pmp"
     local PMP_CONF="$PMP_REPO/pmp.conf"
 
-    run pmp config
-    assert_failure
-    # assert_match "error"
+    run_fail pmp config
     [[ -e $PMP_CONF ]]
 
-    run pmp config pmp.repo "$PMP_REPO"
-    assert_success
-    run pmp config -l
-    assert_success
+    run_ok pmp config pmp.repo "$PMP_REPO"
+    run_ok pmp config -l
     assert_match "pmp.repo=$PMP_REPO"
 
-    run pmp config pmp.repo
-    assert_success
+    run_ok pmp config pmp.repo
     assert_match "$PMP_REPO"
 
-    run pmp config --unset pmp.repo
-    assert_success
-    run pmp config pmp.repo
-    assert_failure
+    run_ok pmp config --unset pmp.repo
+    run_fail pmp config pmp.repo
 
     pmp init
 
-    run pmp config --local core.bare
-    assert_success
+    run_ok pmp config --local core.bare
     assert_match "false"
 }
 
@@ -145,27 +123,17 @@ load pmp-helper
 
     pmp init
 
-    run pmp pin git
-    assert_success
-    run pmp config cmd.git
-    assert_success
-    run pmp pin vim tmux
-    assert_success
-    run pmp config cmd.vim
-    assert_success
-    run pmp config cmd.tmux
-    assert_success
+    run_ok pmp pin git
+    run_ok pmp config cmd.git
+    run_ok pmp pin vim tmux
+    run_ok pmp config cmd.vim
+    run_ok pmp config cmd.tmux
 
-    run pmp unpin git
-    assert_success
-    run pmp config cmd.git
-    assert_failure
-    run pmp unpin vim tmux
-    assert_success
-    run pmp config cmd.vim
-    assert_failure
-    run pmp config cmd.tmux
-    assert_failure
+    run_ok pmp unpin git
+    run_fail pmp config cmd.git
+    run_ok pmp unpin vim tmux
+    run_fail pmp config cmd.vim
+    run_fail pmp config cmd.tmux
 }
 
 @test "pmp keep & free" {
@@ -178,84 +146,66 @@ load pmp-helper
     touch "$TMP_CONF"
     mkdir -p "$TMP_DIR" && touch "$TMP_DIR/b.conf"
 
-    run pmp keep
-    assert_failure
+    run_fail pmp keep
     assert_match "Usage: pmp keep"
 
-    run pmp keep not-exist
-    assert_failure
+    run_fail pmp keep not-exist
     assert_match "No such file or directory"
 
-    run pmp keep "$TMP_CONF"
-    assert_success
+    run_ok pmp keep "$TMP_CONF"
     assert_match "keep $TMP_CONF"
     [[ -h $TMP_CONF ]]
     [[ -f "$PMP_REPO/$(basename "$TMP_CONF")" ]]
     [[ "$(readlink -f "$TMP_CONF")" == "$(readlink -f "$PMP_REPO/$(basename "$TMP_CONF")")" ]]
-    run pmp config --get-regexp "cfg.'$(basename "$TMP_CONF")'*"
-    assert_success
+    run_ok pmp config --get-regexp "cfg.'$(basename "$TMP_CONF")'*"
     assert_match "$TMP_CONF"
 
-    run pmp keep "$TMP_CONF"
-    assert_failure
+    run_fail pmp keep "$TMP_CONF"
     assert_match "already exist"
 
-    run pmp keep "$TMP_CONF" test/"$(basename "$TMP_CONF")"
-    assert_success
+    run_ok pmp keep "$TMP_CONF" test/"$(basename "$TMP_CONF")"
     [[ -h $TMP_CONF ]]
     [[ -f "$PMP_REPO/test/$(basename "$TMP_CONF")" ]]
     [[ "$(readlink -f "$TMP_CONF")" == "$(readlink -f "$PMP_REPO/test/$(basename "$TMP_CONF")")" ]]
-    run pmp config --get-regexp "cfg.'test/$(basename "$TMP_CONF")'*"
-    assert_success
+    run_ok pmp config --get-regexp "cfg.'test/$(basename "$TMP_CONF")'*"
     assert_match "$TMP_CONF"
 
-    run pmp keep "$TMP_DIR"
-    assert_success
+    run_ok pmp keep "$TMP_DIR"
     assert_match "keep $TMP_DIR"
     [[ -h $TMP_DIR ]]
     [[ -d "$PMP_REPO/$(basename "$TMP_DIR")" ]]
     [[ "$(readlink -f "$TMP_DIR")" == "$(readlink -f "$PMP_REPO/$(basename "$TMP_DIR")")" ]]
-    run pmp config --get-regexp "cfg.'$(basename "$TMP_DIR")'*"
-    assert_success
+    run_ok pmp config --get-regexp "cfg.'$(basename "$TMP_DIR")'*"
     assert_match "$TMP_DIR"
 
     touch "$HOME/pmp-test.conf"
-    run pmp keep "$HOME/pmp-test.conf"
-    assert_success
+    run_ok pmp keep "$HOME/pmp-test.conf"
     assert_match 'keep \$HOME/pmp-test.conf'
     [[ -h $HOME/pmp-test.conf ]]
     [[ -f "$PMP_REPO/pmp-test.conf" ]]
     [[ "$(readlink -f "$HOME/pmp-test.conf")" == "$(readlink -f "$PMP_REPO/pmp-test.conf")" ]]
-    run pmp config --get-regexp "cfg.'pmp-test.conf'*"
-    assert_success
+    run_ok pmp config --get-regexp "cfg.'pmp-test.conf'*"
     assert_match '\$HOME/pmp-test.conf'
     rm -rf "$HOME"/pmp-test.conf*
 
-    run pmp free
-    assert_failure
+    run_fail pmp free
     assert_match "Usage: pmp free"
 
-    run pmp free not-exist.conf
-    assert_failure
+    run_fail pmp free not-exist.conf
     assert_match "No such file or directory"
 
-    run pmp free "$(basename "$TMP_DIR")/b.conf"
-    assert_failure
+    run_fail pmp free "$(basename "$TMP_DIR")/b.conf"
     assert_match "is not directly"
 
-    run pmp free "$(basename "$TMP_CONF")"
-    assert_success
+    run_ok pmp free "$(basename "$TMP_CONF")"
     [[ -f $TMP_CONF && ! -h $TMP_CONF ]]
     [[ ! -e "$PMP_REPO/$(basename "$TMP_CONF")" ]]
-    run pmp config --get-regexp "cfg.'$(basename "$TMP_CONF")'*"
-    assert_failure
+    run_fail pmp config --get-regexp "cfg.'$(basename "$TMP_CONF")'*"
 
-    run pmp free "$(basename "$TMP_DIR")"
-    assert_success
+    run_ok pmp free "$(basename "$TMP_DIR")"
     [[ -d $TMP_DIR && ! -h $TMP_DIR ]]
     [[ ! -e "$PMP_REPO/$(basename "$TMP_DIR")" ]]
-    run pmp config --get-regexp "cfg.'$(basename "$TMP_DIR")'*"
-    assert_failure
+    run_fail pmp config --get-regexp "cfg.'$(basename "$TMP_DIR")'*"
 }
 
 @test "pmp sync" {

@@ -142,3 +142,11 @@ refute_match() {
         done
     fi
 }
+run_ok() {
+    run "$@"
+    assert_success
+}
+run_fail() {
+    run "$@"
+    assert_failure
+}
