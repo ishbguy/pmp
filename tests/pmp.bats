@@ -50,15 +50,16 @@ load pmp-helper
 
     run_ok pmp install -y tmux
     run_ok pmp list
-    assert_match "tmux"
+    assert_match "tmux [[:digit:]]"
 
     run_ok pmp info tmux
     assert_match "tmux"
 
     run_ok pmp files tmux
-    assert_match "tmux"
+    assert_match "tmux  /"
 
     run_ok pmp owns tmux
+    assert_match "tmux"
 
     run_ok pmp clean -y
 
