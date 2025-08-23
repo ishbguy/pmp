@@ -419,6 +419,7 @@ pmp_link_repo() {
 pmp_git() {
     local cmd=$1 && shift
     local tmpfile="$(mktemp -u)"
+    trap 'rm -rf $tmpfile' RETURN EXIT
 
     case $cmd in
         init)
@@ -430,21 +431,19 @@ pmp_git() {
             # git init success
             if [[ ${PIPESTATUS[0]} -eq 0 ]]; then
                 local repo="$(dirname "$(awk '/Initialized/ {print $6}' "$tmpfile")")"
-                rm -rf "$tmpfile"
                 (cd "$repo" && touch pmp.conf && git add pmp.conf && git commit -am "first init repo")
                 pmp_link_repo "$repo"
             else
-                rm -rf "$tmpfile" && die "pmp init failed!"
+                die "pmp init failed!"
             fi ;;
         clone)
             git clone "$@" 2>&1 | tee "$tmpfile"
             # git clone success
             if [[ ${PIPESTATUS[0]} -eq 0 ]]; then
                 local repo="$(awk '/Cloning into/ {print $3}' "$tmpfile" | sed -r "s/\.{3}$//g;s/'//g")"
-                rm -rf "$tmpfile"
                 pmp_link_repo "$repo"
             else
-                rm -rf "$tmpfile" && die "pmp clone failed!"
+                die "pmp clone failed!"
             fi ;;
         config)
             # first init pmp conf
