@@ -368,12 +368,15 @@ pmp_cma_keep() {
 
     [[ -d ${target%/*} ]] || mkdir -p "${target%/*}"
     # copy and backup the configurations first
-    cp -rp "$source" "$target" && eval mv "$cfg" "$cfg-$(date +%Y%m%d%H%M%S)" \
-        && eval ln -s "$(readlink -f "$target")" "$cfg" \
-        && pmp_git config "cfg.'${target##"$PMP_REPO"/}'.link" "$cfg" \
-        && pmp_git add "$PMP_CONF" "${target##"${PMP_REPO}"/}" \
-        && pmp_git commit -m "keep $cfg" \
-        || die "Failed to keep $1"
+    (
+        set -o errexit
+        cp -rp "$source" "$target"
+        eval mv "$cfg" "$cfg-$(date +%Y%m%d%H%M%S)"
+        eval ln -s "$(readlink -f "$target")" "$cfg"
+        pmp_git config "cfg.'${target##"$PMP_REPO"/}'.link" "$cfg"
+        pmp_git add "$PMP_CONF" "${target##"${PMP_REPO}"/}"
+        pmp_git commit -m "keep $cfg"
+    ) || die "Failed to keep $1"
 }
 
 pmp_cma_free() {
@@ -386,12 +389,15 @@ pmp_cma_free() {
         if pmp config --get-regexp "cfg.'$cfg'.link" &>/dev/null; then
             origin="$(pmp config --get-regexp "cfg.'$cfg'.link" 2>/dev/null | awk '{print $2}')"
             [[ -e $origin ]] || warn "Can not find the link: $origin -> $cfg" >&2
-            eval rm -rf "$origin" && eval cp -rp "$PMP_REPO/$cfg" "$origin" \
-                && pmp_git config --unset "cfg.'$cfg'.link" \
-                && pmp_git add "$PMP_CONF" \
-                && pmp_git rm -r "$cfg" \
-                && pmp_git commit -m "free $cfg" \
-                || error "Failed to free $cfg"
+            (
+                set -o errexit
+                eval rm -rf "$origin"
+                eval cp -rp "$PMP_REPO/$cfg" "$origin"
+                pmp_git config --unset "cfg.'$cfg'.link"
+                pmp_git add "$PMP_CONF"
+                pmp_git rm -r "$cfg"
+                pmp_git commit -m "free $cfg"
+            ) || error "Failed to free $cfg"
         else
             error "${cfg@Q} is not directly kept as a file, maybe kept in a directory."
         fi
