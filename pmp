@@ -97,6 +97,7 @@ require_var() { require defined "You need to define vars" "$@"; }
 require_func() { require definedf "You need to define funcs" "$@"; }
 require_tool() { require has_tool "You need to install tools" "$@"; }
 inicfg() { require_tool git && git config --file "$@"; }
+_sudo_() { [[ $(id -u) == 0 ]] || echo sudo ; }
 
 # Linux package manager agent
 
@@ -141,24 +142,24 @@ EOF
 
 arch_pma() {
     require_tool pacman
-    has_tool pkgfile || { pacman -Sy --noconfirm pkgfile && pkgfile -u ; } || die "Can not install 'pkgfile'!"
+    has_tool pkgfile || { $(_sudo_) pacman -Sy --noconfirm pkgfile && $(_sudo_) pkgfile -u ; } || die "Can not install 'pkgfile'!"
 
     local cmd=$1 && shift
     local ita && [[ $1 == "-y" ]] && ita="--noconfirm" && shift
     local repoline
 
     case $cmd in
-        install) pacman $ita -S "$@" ;;
-        remove) pacman $ita -R "$@" ;;
-        autoremove) pacman $ita -Rns $(pacman -Qdtq) "$@" ;;
-        update) pacman -Sy "$@" ;;
-        upgrade) pacman $ita -Syu "$@" ;;
+        install) $(_sudo_) pacman $ita -S "$@" ;;
+        remove) $(_sudo_) pacman $ita -R "$@" ;;
+        autoremove) $(_sudo_) pacman $ita -Rns $(pacman -Qdtq) "$@" ;;
+        update) $(_sudo_) pacman -Sy "$@" ;;
+        upgrade) $(_sudo_) pacman $ita -Syu "$@" ;;
         search) pacman -Ss "$@" ;;
         list) pacman -Q "$@" ;;
         info) pacman -Si "$@" ;;
         files) pkgfile -l "$@" | sed -r 's|^[[:alnum:]]+/||; s/\s+/  /';;
-        owns) pkgfile -s "$@" | sed -r 's|^.*/||' ;;
-        clean) pacman $ita -Sc "$@" ;;
+        owns) pkgfile -sq "$@" ;;
+        clean) $(_sudo_) pacman $ita -Sc "$@" ;;
         source)
             for repoline in $(git config --file /etc/pacman.conf --list | grep -Ev 'option'); do
                 echo "[${repoline%%=*}]" | sed -r 's/.include//g' 
@@ -174,22 +175,22 @@ arch_pma() {
 
 debian_pma() {
     require_tool apt
-    has_tool apt-file || { apt update && apt install -y apt-file && apt-file update ; } || die "Can not install 'apt-file'!"
+    has_tool apt-file || { $(_sudo_) apt update && $(_sudo_) apt install -y apt-file && $(_sudo_) apt-file update ; } || die "Can not install 'apt-file'!"
 
     local cmd=$1 && shift
 
     case $cmd in
-        install) apt install "$@" ;;
-        remove) apt remove "$@" ;;
-        autoremove) apt autoremove "$@" ;;
-        update) apt update "$@" ;;
-        upgrade) apt upgrade "$@" ;;
+        install) $(_sudo_) apt install "$@" ;;
+        remove) $(_sudo_) apt remove "$@" ;;
+        autoremove) $(_sudo_) apt autoremove "$@" ;;
+        update) $(_sudo_) apt update "$@" ;;
+        upgrade) $(_sudo_) apt upgrade "$@" ;;
         search) apt search "$@" ;;
         list) apt list --installed "$@" | awk '{gsub(/\/.*$/, "", $1); print $1, $2}' ;;
         info) apt show "$@" ;;
         files) apt-file list "$@" | awk -F: '{print $1, $2}' ;;
-        owns) apt-file search "$@" | awk -F: '{print $1}' | sort -u ;;
-        clean) apt clean "$@" ;;
+        owns) apt-file search -l "$@" ;;
+        clean) $(_sudo_) apt clean "$@" ;;
         source) apt-cache policy "$@" ;;
         * ) die "No such command: ${cmd@Q}" ;;
     esac
@@ -205,17 +206,17 @@ fedora_pma() {
     local cmd=$1 && shift
 
     case $cmd in
-        install) dnf install "$@" ;;
-        remove) dnf remove "$@" ;;
-        autoremove) dnf autoremove ;;
-        update) dnf check-update "$@" || true ;;
-        upgrade) dnf upgrade "$@" ;;
+        install) $(_sudo_) dnf install "$@" ;;
+        remove) $(_sudo_) dnf remove "$@" ;;
+        autoremove) $(_sudo_) dnf autoremove ;;
+        update) $(_sudo_) dnf check-update "$@" || true ;;
+        upgrade) $(_sudo_) dnf upgrade "$@" ;;
         search) dnf search "$@" ;;
         list) dnf list --installed "$@" | tail -n +2 | awk '{gsub(/\..*$/, "", $1); print $1, $2}' ;;
         info) dnf info "$@" ;;
         files) dnf repoquery --list "$@" 2>/dev/null | sed -r "s/(.*)/$*  \1/" ;;
         owns) dnf provides "$@" 2>/dev/null | awk '/-[[:digit:]].*:/ {gsub(/-[[:digit:]].*/, "", $0); print}' | sort -u ;;
-        clean) dnf clean all "$@" ;;
+        clean) $(_sudo_) dnf clean all "$@" ;;
         source) dnf repolist "$@" ;;
         * ) die "No such command: ${cmd@Q}" ;;
     esac
@@ -235,11 +236,11 @@ opensuse_pma() {
     local cmd=$1 && shift
 
     case $cmd in
-        install) zypper install "$@" ;;
-        remove) zypper remove "$@" ;;
-        autoremove) zypper rm --clean-deps "$@" ;;
-        update) zypper refresh "$@" ;;
-        upgrade) zypper update "$@" ;;
+        install) $(_sudo_) zypper install "$@" ;;
+        remove) $(_sudo_) zypper remove "$@" ;;
+        autoremove) $(_sudo_) zypper rm --clean-deps "$@" ;;
+        update) $(_sudo_) zypper refresh "$@" ;;
+        upgrade) $(_sudo_) zypper update "$@" ;;
         search) zypper search "$@" ;;
         list) zypper search --installed-only --details "$@" | tail -n +6 | awk '{print $3, $7}' ;;
         info) zypper info "$@" ;;
@@ -247,7 +248,7 @@ opensuse_pma() {
             if zypper search --installed-only --match-exact "$@" &>/dev/null; then
                 rpm -ql "$@" | sed -r "s/(.*)/$*  \1/"
             else
-                zypper install --download-only "$@" \
+                $(_sudo_) zypper install --download-only "$@" \
                     && rpm -qlp "$(find /var/cache/zypp -name "*${*}*")" | sed -r "s/(.*)/$*  \1/"
             fi
             ;;
@@ -255,7 +256,7 @@ opensuse_pma() {
             awk -F'|' '{gsub(/\s+/, "", $2); print $2}' | sort -u ;;
         clean)
             [[ $1 == '-y' ]] && shift || true
-            zypper clean "$@"
+             $(_sudo_) zypper clean "$@"
             ;;
         source) zypper repos "$@" ;;
         * ) die "No such command: ${cmd@Q}" ;;
@@ -272,8 +273,8 @@ opensuse_tumbleweed_pma() {
 
 openwrt_pma() {
     require_tool opkg
-    [[ -d /var/lock ]] || mkdir -p /var/lock || die "Can not mkdir -p /var/lock!"
-    has_tool find || { opkg update && opkg install findutils ; } || die "Can not install 'findutils'!"
+    [[ -d /var/lock ]] || $(_sudo_) mkdir -p /var/lock || die "Can not mkdir -p /var/lock!"
+    has_tool find || { $(_sudo_) opkg update && $(_sudo_) opkg install findutils ; } || die "Can not install 'findutils'!"
 
     local cmd=$1 && shift
     local -a ita=() && [[ $1 == "-y" ]] \
@@ -282,11 +283,11 @@ openwrt_pma() {
         && shift
 
     case $cmd in
-        install) opkg install "${ita[@]}" "$@" ;;
-        remove) opkg remove "${ita[@]}" "$@" ;;
-        autoremove) opkg remove --autoremove "${ita[@]}" "$@" ;;
-        update) opkg update "$@" || true ;;
-        upgrade) opkg upgrade "${ita[@]}" "$@" ;;
+        install) $(_sudo_) opkg install "${ita[@]}" "$@" ;;
+        remove) $(_sudo_) opkg remove "${ita[@]}" "$@" ;;
+        autoremove) $(_sudo_) opkg remove --autoremove "${ita[@]}" "$@" ;;
+        update) $(_sudo_) opkg update "$@" || true ;;
+        upgrade) $(_sudo_) opkg upgrade "${ita[@]}" "$@" ;;
         search) opkg find "$@" ;;
         list) opkg list-installed "$@" | awk '{print $1, $3}' ;;
         info) opkg info "$@" ;;
@@ -297,7 +298,7 @@ openwrt_pma() {
                 [[ -e $file ]] && file="$PWD/$file" || file="$(which "$file")"
                 opkg search "$file" | awk '{print $1}' | sort -u
             done ;;
-        clean) rm -rf /var/opkg-lists/* ;;
+        clean) $(_sudo_) rm -rf /var/opkg-lists/* ;;
         source)
             if [[ ${#@} -eq 0 ]]; then
                 grep '^src' /etc/opkg.conf $(find /etc/opkg -name *.conf)
@@ -469,9 +470,9 @@ pmp_self_install() {
     done
     [[ ${#miss[@]} -eq 0 ]] || {
         echo -e "Need to install: ${miss[*]}"
-        $(linux_pma) update
+        $(_sudo_) $(linux_pma) update
         for t in "${miss[@]}"; do
-            $(linux_pma) install -y "$t" || fails+=("$t")
+            $(_sudo_) $(linux_pma) install -y "$t" || fails+=("$t")
         done
         if [[ ${#fails[@]} -eq 0 ]]; then
             echo "Self installation done!"
