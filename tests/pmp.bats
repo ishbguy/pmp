@@ -60,6 +60,11 @@ load pmp-helper
 
     run_ok pmp owns tmux
     assert_match "tmux"
+    run_ok pmp owns -l tmux
+    assert_match "^tmux$"
+    run_ok pmp owns -l "$(command -v tmux)"
+    assert_match "^tmux$"
+    run_fail pmp owns -l no-such-file
 
     run_ok pmp clean -y
 
