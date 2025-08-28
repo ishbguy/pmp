@@ -502,7 +502,7 @@ pmp_cma_free() {
         [[ -e $PMP_REPO/$cfg ]] || error "No such file or directory in repo: $cfg" || continue
         if pmp config --get-regexp "cfg.'$cfg'.link" &>/dev/null; then
             origin="$(pmp config --get-regexp "cfg.'$cfg'.link" 2>/dev/null | awk '{print $2}')"
-            [[ -e $origin ]] || warn "Can not find the link: $origin -> $cfg" >&2
+            eval [[ -e "$origin" ]] || warn "Can not find the link: $origin -> $cfg"
             (
                 set -o errexit
                 eval rm -rf "$origin"
