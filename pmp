@@ -178,8 +178,7 @@ arch_pma() {
             local file="$(readpath "$1")" && [[ -n $file ]] || die "No such file: $1"
 
             if [[ $installed == 'true' ]]; then
-                local -a KVS=($(pacman -Q | awk '{print "[" $1 "]=\"1\"" }'))
-                eval "local -A PKGS=(${KVS[*]})"
+                eval "local -A PKGS=($(pacman -Q | awk '{print "[" $1 "]=\"1\"" }'))"
                 for pkg in $(pkgfile -sq "$file"); do
                     [[ ${PKGS[$pkg]} == "1" ]] && echo "$pkg" && return 0
                 done
@@ -222,8 +221,7 @@ debian_pma() {
             local file="$(readpath "$1")" && [[ -n $file ]] || die "No such file: $1"
 
             if [[ $installed == 'true' ]]; then
-                local -a KVS=($(apt list --installed 2>/dev/null | awk '{gsub(/\/.*$/, "", $1); print "[" $1 "]=\"1\"" }'))
-                eval "local -A PKGS=(${KVS[*]})"
+                eval "local -A PKGS=($(apt list --installed 2>/dev/null | awk '{gsub(/\/.*$/, "", $1); print "[" $1 "]=\"1\"" }'))"
                 for pkg in $(apt-file search -l "$file"); do
                     [[ ${PKGS[$pkg]} == "1" ]] && echo "$pkg" && return 0
                 done
@@ -261,8 +259,7 @@ fedora_pma() {
             local file="$(readpath "$1")" && [[ -n $file ]] || die "No such file: $1"
 
             if [[ $installed == 'true' ]]; then
-                local -a KVS=($(dnf list --installed | tail -n +2 | awk '{gsub(/\..*$/, "", $1); print "[" $1 "]=\"1\"" }'))
-                eval "local -A PKGS=(${KVS[*]})"
+                eval "local -A PKGS=($(dnf list --installed | tail -n +2 | awk '{gsub(/\..*$/, "", $1); print "[" $1 "]=\"1\"" }'))"
                 for pkg in $(dnf provides "$file" 2>/dev/null | awk '/-[[:digit:]].*:/ {gsub(/-[[:digit:]].*/, "", $0); print}' | sort -u); do
                     [[ ${PKGS[$pkg]} == "1" ]] && echo "$pkg" && return 0
                 done
@@ -310,8 +307,7 @@ opensuse_pma() {
             local file="$(readpath "$1")" && [[ -n $file ]] || die "No such file: $1"
 
             if [[ $installed == 'true' ]]; then
-                local -a KVS=($(zypper search --installed-only --details | tail -n +6 | awk '{print "[" $3 "]=\"1\"" }'))
-                eval "local -A PKGS=(${KVS[*]})"
+                eval "local -A PKGS=($(zypper search --installed-only --details | tail -n +6 | awk '{print "[" $3 "]=\"1\"" }'))"
                 for pkg in $(opensuse_pma_owns "$file"); do
                     [[ ${PKGS[$pkg]} == "1" ]] && echo "$pkg" && return 0
                 done
@@ -366,8 +362,7 @@ openwrt_pma() {
             local file="$(readpath "$1")" && [[ -n $file ]] || die "No such file: $1"
 
             if [[ $installed == 'true' ]]; then
-                local -a KVS=($(opkg list-installed | awk '{print "[" $1 "]=\"1\"" }'))
-                eval "local -A PKGS=(${KVS[*]})"
+                eval "local -A PKGS=($(opkg list-installed | awk '{print "[" $1 "]=\"1\"" }'))"
                 for pkg in $(opkg search "$file" | awk '{print $1}' | sort -u); do
                     [[ ${PKGS[$pkg]} == "1" ]] && echo "$pkg" && return 0
                 done
