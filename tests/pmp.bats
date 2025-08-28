@@ -132,6 +132,9 @@ load pmp-helper
     run_ok pmp pin git
     run_ok pmp config cmd.git
 
+    run_ok pmp pin cat
+    run_ok pmp config cmd.cat
+
     run_ok pmp pin tmux awk
     run_ok pmp config cmd.tmux
     run_ok pmp config cmd.awk

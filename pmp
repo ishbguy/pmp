@@ -219,6 +219,7 @@ debian_pma() {
         owns)
             [[ $1 == '-l' ]] && local installed=true && shift
             local file="$(readpath "$1")" && [[ -n $file ]] || die "No such file: $1"
+            [[ $file =~ ^/usr/s?bin ]] && file="${file#/usr}"
 
             if [[ $installed == 'true' ]]; then
                 eval "local -A PKGS=($(apt list --installed 2>/dev/null | awk '{gsub(/\/.*$/, "", $1); print "[" $1 "]=\"1\"" }'))"
