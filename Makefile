@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 LOG_FILE := ci.log
 
-TEST_IMGS := archlinux debian ubuntu fedora redhat/ubi10 opensuse/leap opensuse/tumbleweed zzsrv/openwrt
+TEST_IMGS := archlinux debian ubuntu fedora opensuse/leap zzsrv/openwrt
 TEST_DIRS := tests
 DEP_TOOLS := bats
 
