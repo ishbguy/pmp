@@ -98,6 +98,17 @@ require_func() { require definedf "You need to define funcs" "$@"; }
 require_tool() { require has_tool "You need to install tools" "$@"; }
 inicfg() { require_tool git && git config --file "$@"; }
 _sudo_() { [[ $(id -u) == 0 ]] || echo sudo ; }
+readpath() {
+    ensure "[[ $# -eq 1 && -n $1 ]]" "Usage: readpath <file>"
+
+    if [[ -e $1 ]]; then
+        readlink -f "$1"
+    elif command -v "$1" &>/dev/null; then
+        readlink -f "$(command -v "$1")"
+    else
+        return 1
+    fi
+}
 
 # Linux package manager agent
 
@@ -164,13 +175,7 @@ arch_pma() {
         files) pkgfile -l "$@" | sed -r 's|^[[:alnum:]]+/||; s/\s+/  /';;
         owns)
             [[ $1 == '-l' ]] && local installed=true && shift
-            if [[ -e $1 ]]; then
-                local file=$(readlink -f "$1")
-            elif command -v "$1" &>/dev/null; then
-                local file="$(readlink -f "$(command -v "$1")")"
-            else
-                die "No such file: $1"
-            fi
+            local file="$(readpath "$1")" && [[ -n $file ]] || die "No such file: $1"
 
             if [[ $installed == 'true' ]]; then
                 local -a KVS=($(pacman -Q | awk '{print "[" $1 "]=\"1\"" }'))
@@ -214,13 +219,7 @@ debian_pma() {
         files) apt-file list "$@" | awk -F: '{print $1, $2}' ;;
         owns)
             [[ $1 == '-l' ]] && local installed=true && shift
-            if [[ -e $1 ]]; then
-                local file=$(readlink -f "$1")
-            elif command -v "$1" &>/dev/null; then
-                local file="$(readlink -f "$(command -v "$1")")"
-            else
-                die "No such file: $1"
-            fi
+            local file="$(readpath "$1")" && [[ -n $file ]] || die "No such file: $1"
 
             if [[ $installed == 'true' ]]; then
                 local -a KVS=($(apt list --installed 2>/dev/null | awk '{gsub(/\/.*$/, "", $1); print "[" $1 "]=\"1\"" }'))
@@ -259,13 +258,7 @@ fedora_pma() {
         files) dnf repoquery --list "$@" 2>/dev/null | sed -r "s/(.*)/$*  \1/" ;;
         owns)
             [[ $1 == '-l' ]] && local installed=true && shift
-            if [[ -e $1 ]]; then
-                local file=$(readlink -f "$1")
-            elif command -v "$1" &>/dev/null; then
-                local file="$(readlink -f "$(command -v "$1")")"
-            else
-                die "No such file: $1"
-            fi
+            local file="$(readpath "$1")" && [[ -n $file ]] || die "No such file: $1"
 
             if [[ $installed == 'true' ]]; then
                 local -a KVS=($(dnf list --installed | tail -n +2 | awk '{gsub(/\..*$/, "", $1); print "[" $1 "]=\"1\"" }'))
@@ -311,17 +304,10 @@ opensuse_pma() {
             else
                 $(_sudo_) zypper install --download-only "$@" \
                     && rpm -qlp "$(find /var/cache/zypp -name "*${*}*")" | sed -r "s/(.*)/$*  \1/"
-            fi
-            ;;
+            fi ;;
         owns)
             [[ $1 == '-l' ]] && local installed=true && shift
-            if [[ -e $1 ]]; then
-                local file=$(readlink -f "$1")
-            elif command -v "$1" &>/dev/null; then
-                local file="$(readlink -f "$(command -v "$1")")"
-            else
-                die "No such file: $1"
-            fi
+            local file="$(readpath "$1")" && [[ -n $file ]] || die "No such file: $1"
 
             if [[ $installed == 'true' ]]; then
                 local -a KVS=($(zypper search --installed-only --details | tail -n +6 | awk '{print "[" $3 "]=\"1\"" }'))
@@ -377,13 +363,7 @@ openwrt_pma() {
         files) opkg files "$@" | tail -n +2 | sed -r "s/(.*)/$*  \1/" ;;
         owns)
             [[ $1 == '-l' ]] && local installed=true && shift
-            if [[ -e $1 ]]; then
-                local file=$(readlink -f "$1")
-            elif command -v "$1" &>/dev/null; then
-                local file="$(readlink -f "$(command -v "$1")")"
-            else
-                die "No such file: $1"
-            fi
+            local file="$(readpath "$1")" && [[ -n $file ]] || die "No such file: $1"
 
             if [[ $installed == 'true' ]]; then
                 local -a KVS=($(opkg list-installed | awk '{print "[" $1 "]=\"1\"" }'))
@@ -446,8 +426,7 @@ pmp_cma_pin() {
     local -A configs=()
     local -a miss=()
 
-    distro="$(linux_distro)"
-    [[ -n $distro ]] || die "Unknow distro."
+    distro="$(linux_distro)" && [[ -n $distro ]] || die "Unknow distro."
 
     for obj in "$@"; do
         pkg="$($(linux_pma) owns -l "$obj")"
