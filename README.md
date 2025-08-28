@@ -64,16 +64,16 @@ pmp [-frIvhD] [file|dir] <cmd> args...
 
     -f  specify the configuration file
     -r  specify the repo directory
-    -I  self install and update
+    -I  install pmp dependences
     -v  print version number
     -h  print this help message
     -D  turn on debug mode
 
 General commands:
 
-    self-install   self install and update
-    version        print version number
-    help           print this help message
+    bootstrap   install pmp dependences
+    version     print version number
+    help        print this help message
 
 Linux package managment commands:
 
@@ -99,7 +99,7 @@ Configuration managment commands:
     unpin       rmove package deps to pmp configuration file
     keep        add configuration files to the repo
     free        remove configuration files from the repo
-    sync        install dependence packages and configure
+    sync        install dependence packages and configure files
     deps        show packages deps
 
 Others commands will be passed to git, you can type 'git help <cmd>' for help.

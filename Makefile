@@ -33,7 +33,7 @@ $(TEST_IMGS): bats ## Run test in specific OS
 		export CI=true && \
 		export PATH=\$$PATH:/repo/bin:/repo/bats/bin && \
 		mirror-set $@ && \
-		pmp self-install && \
+		pmp bootstrap && \
 		git config --global user.email test@example.com && \
 		git config --global user.name test && \
 		pmp install -y make && \

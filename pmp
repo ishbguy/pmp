@@ -553,7 +553,7 @@ pmp_git() {
     esac
 }
 
-pmp_self_install() {
+pmp_bootstrap() {
     local -a miss=() fails=()
     echo -e "Checking for dependences:"
     for t in "${deps[@]}"; do
@@ -586,16 +586,16 @@ $PROGRAM [-frIvhD] [file|dir] <cmd> args...
 
     -f  specify the configuration file
     -r  specify the repo directory
-    -I  self install and update
+    -I  install pmp dependences
     -v  print version number
     -h  print this help message
     -D  turn on debug mode
 
 General commands:
 
-    self-install   self install and update
-    version        print version number
-    help           print this help message
+    bootstrap   install pmp dependences
+    version     print version number
+    help        print this help message
 
 $(linux_pma help)
 
@@ -611,7 +611,7 @@ EOF
     [[ ${opts[D]} ]] && set -x
     [[ ${opts[h]} ]] && usage && return 0
     [[ ${opts[v]} ]] && version && return 0
-    [[ ${opts[I]} || $1 == "self-install" ]] && { pmp_self_install ; return $? ; }
+    [[ ${opts[I]} || $1 == "bootstrap" ]] && { pmp_bootstrap ; return $? ; }
 
     require_tool "${deps[@]}"
 
