@@ -127,19 +127,27 @@ load pmp-helper
     local PMP_REPO="$PROJECT_TMP_DIR/pmp"
     local PMP_CONF="$PMP_REPO/pmp.conf"
 
-    pmp init
+    run_ok pmp init
 
     run_ok pmp pin git
     run_ok pmp config cmd.git
-    run_ok pmp pin vim tmux
-    run_ok pmp config cmd.vim
+
+    run_ok pmp pin tmux awk
     run_ok pmp config cmd.tmux
+    run_ok pmp config cmd.awk
+
+    run_fail pmp pin no-such-cmd
+    run_fail pmp config cmd.no-such-cmd
 
     run_ok pmp unpin git
     run_fail pmp config cmd.git
-    run_ok pmp unpin vim tmux
-    run_fail pmp config cmd.vim
+
+    run_ok pmp unpin tmux awk
     run_fail pmp config cmd.tmux
+    run_fail pmp config cmd.awk
+
+    run_fail pmp unpin no-such-cmd
+    run_fail pmp config cmd.no-such-cmd
 }
 
 @test "pmp keep & free" {

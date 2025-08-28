@@ -122,6 +122,14 @@ EOF
 
     [[ $# -eq 0 ]] || { usage && return 0 ; }
 
+    local distro="$(linux_distro)"
+    if [[ -n $distro ]] && declare -F "${distro}_pma" &>/dev/null; then
+        echo "${distro}_pma"
+    else
+        echo ":"
+    fi
+}
+linux_distro() {
     local distro line
     if [[ -f /etc/os-release ]]; then
         while IFS='' read -r line || [[ -n "$line" ]]; do
@@ -133,11 +141,7 @@ EOF
             fi
         done </etc/os-release
     fi
-    if [[ -n $distro ]] && declare -F "${distro}_pma" &>/dev/null; then
-        echo "${distro}_pma"
-    else
-        echo ":"
-    fi
+    echo "$distro"
 }
 
 arch_pma() {
@@ -338,7 +342,7 @@ opensuse_pma() {
     esac
 }
 opensuse_pma_owns() {
-    zypper search --provides --match-substrings --details "$1" | tail -n +6 |\
+    zypper search --provides --match-substrings "$1" | tail -n +6 |\
         awk -F'|' '{gsub(/\s+/, "", $2); print $2}' | sort -u
 }
 
@@ -438,7 +442,24 @@ EOF
 }
 
 pmp_cma_pin() {
-    for obj in "$@"; do pmp_git config "cmd.$obj" true; done
+    local pkg distro
+    local -A configs=()
+    local -a miss=()
+
+    distro="$(linux_distro)"
+    [[ -n $distro ]] || die "Unknow distro."
+
+    for obj in "$@"; do
+        pkg="$($(linux_pma) owns -l "$obj")"
+        [[ -n $pkg ]] && configs[cmd.$obj]="$pkg@$distro" || miss+=("$obj")
+    done
+
+    [[ ${#miss[@]} -eq 0 ]] || die "Can not find objects: ${miss[*]}."
+
+    for cfg in "${!configs[@]}"; do
+        pmp_git config "$cfg" "${configs[$cfg]}"
+    done
+
 }
 
 pmp_cma_unpin() {
